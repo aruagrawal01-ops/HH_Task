@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Blocks every network request (fetch, images, forms, fonts), so the pasted message cannot leave this device. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'">
+<title>Scam Message Checker</title>
+<style>
+  :root { --navy: #0b2a4a; --navy-2: #133d68; --blue: #1f5fa8; --ink: #0f1f33; --muted: #5a6b80;
+          --line: #d8e1ec; --white: #fff; --bad: #b42318; --bad-bg: #fef3f2; --warn: #8a6a00; --warn-bg: #fffbe6;
+          --ok: #1e6b43; --ok-bg: #effaf4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--ink); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: #eef3f9;
+         background-image: radial-gradient(circle at 15% 0%, #dbe7f5 0, transparent 45%),
+                           radial-gradient(circle at 90% 30%, #e3ecf7 0, transparent 40%); }
+  header { background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%); color: var(--white);
+           padding: 72px 16px 128px; text-align: center; }
+  .badge { width: 64px; height: 64px; margin: 0 auto 24px; border-radius: 18px; display: grid; place-items: center;
+           background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); }
+  h1 { margin: 0; font-size: clamp(2rem, 6vw, 3rem); line-height: 1.15; letter-spacing: -.02em; }
+  p.sub { max-width: 520px; margin: 16px auto 0; font-size: 1.1rem; color: #c9d8ea; }
+  main { max-width: 680px; margin: -88px auto 0; padding: 0 16px 64px; }
+  .card { background: var(--white); border-radius: 20px; padding: 32px; border: 1px solid var(--line);
+          box-shadow: 0 20px 48px -20px rgba(11,42,74,.25); }
+  label { display: block; font-weight: 600; margin-bottom: 12px; color: var(--navy); }
+  textarea { width: 100%; min-height: 240px; padding: 16px; font: inherit; color: inherit; background: #f8fafd;
+             border: 1px solid var(--line); border-radius: 14px; resize: vertical; transition: border-color .15s, background .15s; }
+  textarea::placeholder { color: #8a99ac; }
+  textarea:focus { outline: none; border-color: var(--blue); background: var(--white); box-shadow: 0 0 0 4px rgba(31,95,168,.15); }
+  .actions { display: flex; gap: 12px; margin-top: 20px; }
+  #clear { flex: none; padding: 16px 24px; font: inherit; font-weight: 700; color: var(--navy); background: var(--white);
+           border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }
+  #clear:hover { background: #f1f5fa; }
+  #clear:focus-visible, .help-btn:focus-visible, .help-x:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+  header { position: relative; }
+  .help-btn { position: absolute; top: 16px; right: 16px; display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+              font: inherit; font-size: .9rem; font-weight: 600; color: var(--white); background: rgba(255,255,255,.1);
+              border: 1px solid rgba(255,255,255,.25); border-radius: 999px; cursor: pointer; }
+  .help-btn:hover { background: rgba(255,255,255,.18); }
+  .report { margin-top: 16px; padding: 20px; border-radius: 14px; background: var(--white); border: 2px solid var(--bad); }
+  .report[hidden] { display: none; }
+  .report .list-title { margin-top: 0; color: var(--bad); }
+  .report p { margin: 0; font-size: 1.05rem; }
+  .report a { color: var(--bad); }
+  .report .report-sub { margin-top: 8px; font-size: .9rem; color: var(--muted); }
+  footer { max-width: 680px; margin: 0 auto; padding: 0 24px 48px; text-align: center; font-size: .85rem; color: var(--muted); }
+  footer p { margin: 0; }
+  dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 28px; border: 0; border-radius: 20px;
+           color: var(--ink); box-shadow: 0 24px 64px -16px rgba(11,42,74,.45); }
+  dialog::backdrop { background: rgba(11,42,74,.55); }
+  .help-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  dialog h2 { margin: 0; font-size: 1.4rem; color: var(--navy); }
+  dialog h3 { margin: 20px 0 8px; font-size: 1rem; color: var(--navy); }
+  dialog p { margin: 12px 0 0; } dialog ul { margin: 0; padding-left: 20px; } dialog li + li { margin-top: 8px; }
+  .help-x { width: 40px; height: 40px; flex: none; font-size: 1.6rem; line-height: 1; color: var(--navy); background: #eef3f9;
+            border: 0; border-radius: 50%; cursor: pointer; }
+  .help-score { list-style: none; padding: 0 !important; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+  .dot.ok { background: #1e8e4f; } .dot.warn { background: #f2c200; } .dot.bad { background: var(--bad); }
+  #check { flex: 1; width: 100%; padding: 16px; font: inherit; font-weight: 700; color: var(--white);
+           background: var(--navy); border: 0; border-radius: 14px; cursor: pointer; transition: background .15s; }
+  #check:hover { background: var(--navy-2); }
+  #check:focus-visible, .ex:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+  .examples { margin: 0 0 24px; padding: 0 0 24px; border-bottom: 1px solid var(--line); }
+  .examples h2 { margin: 0 0 4px; font-size: 1rem; color: var(--navy); }
+  .examples p { margin: 0 0 16px; font-size: .9rem; color: var(--muted); }
+  .ex-group + .ex-group { margin-top: 12px; }
+  .ex-group h3 { margin: 0 0 8px; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .ex-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ex { padding: 8px 14px; font: inherit; font-size: .9rem; font-weight: 600; border-radius: 999px; cursor: pointer;
+        border: 1px solid; transition: background .15s; }
+  .ex.scam { color: var(--bad); background: var(--bad-bg); border-color: #f4c7c3; }
+  .ex.scam:hover { background: #fde4e1; }
+  .ex.safe { color: var(--ok); background: var(--ok-bg); border-color: #bfe5cf; }
+  .ex.safe:hover { background: #dcf3e6; }
+  .private { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 20px 0 0;
+             font-size: .9rem; color: var(--muted); }
+  #result { margin-top: 24px; padding: 28px 32px; border-radius: 20px; background: var(--white); border: 1px solid var(--line);
+            border-left-width: 6px; box-shadow: 0 12px 32px -16px rgba(11,42,74,.2); }
+  #result[hidden] { display: none; }
+  #result.empty .score, #result.empty .meter, #result.empty .meter-scale { display: none; }
+  #result h2 { margin: 0 0 8px; font-size: 1.4rem; color: var(--navy); }
+  #result.bad { background: var(--bad-bg); border-color: #f4c7c3; border-left-color: var(--bad); } #result.bad h2 { color: var(--bad); }
+  #result.warn { background: var(--warn-bg); border-color: #f5e08a; border-left-color: var(--warn); } #result.warn h2 { color: var(--warn); }
+  #result.ok { background: var(--ok-bg); border-color: #bfe5cf; border-left-color: var(--ok); } #result.ok h2 { color: var(--ok); }
+  .list-title { margin: 24px 0 12px; font-size: 1.05rem; color: var(--navy); }
+  #result ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  #result ol li { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.75); border: 1px solid rgba(15,31,51,.08); }
+  #result ol li.bonus { background: transparent; border-style: dashed; }
+  .f-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; color: var(--navy); }
+  .f-head .pts { flex: none; font-variant-numeric: tabular-nums; }
+  .f-words { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .f-words span { padding: 2px 10px; border-radius: 999px; background: #fff; border: 1px solid var(--line);
+                  font-size: .9rem; overflow-wrap: anywhere; }
+  .f-why { margin: 0; color: #33445a; }
+  .f-why::before { content: "→ "; color: var(--muted); }
+  .advice { margin-top: 24px; padding: 20px; border-radius: 14px; background: var(--navy); color: var(--white); }
+  .advice .list-title { margin-top: 0; color: var(--white); }
+  .advice ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .advice li { position: relative; padding-left: 28px; }
+  .advice li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%;
+                       background: rgba(255,255,255,.15); font-size: .75rem; display: grid; place-items: center; margin-top: 3px; }
+  #findings-wrap[hidden], #advice-wrap[hidden] { display: none; }
+  .meter-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .score { margin: 0; font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .score .of { font-size: 1.1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+  #result .meter-head h2 { margin: 0; font-size: 1.6rem; }
+  .meter { position: relative; height: 20px; border-radius: 999px; overflow: hidden;
+           background: linear-gradient(to right, #cfeedd 0 30%, #fff1b8 30% 60%, #fbd5d2 60% 100%); }
+  .meter-fill { height: 100%; width: 0; border-radius: 999px; transition: width .6s ease; }
+  .meter-scale { position: relative; height: 20px; margin: 6px 0 16px; font-size: .8rem; color: var(--muted); }
+  .meter-scale span { position: absolute; transform: translateX(-50%); }
+  .meter-scale span:first-child { left: 0; transform: none; } .meter-scale span:last-child { right: 0; transform: none; }
+  #result.ok .meter-fill { background: #1e8e4f; } #result.ok .score { color: var(--ok); }
+  #result.warn .meter-fill { background: #f2c200; } #result.warn .score { color: var(--warn); }
+  #result.bad .meter-fill { background: var(--bad); } #result.bad .score { color: var(--bad); }
+  @media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
+  .note { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid rgba(15,31,51,.1); font-size: .9rem; color: var(--muted); }
+  .flag { margin-top: 24px; padding: 28px 32px; border-radius: 20px; background: var(--white); border: 1px solid var(--line);
+          box-shadow: 0 12px 32px -16px rgba(11,42,74,.2); }
+  .flag[hidden] { display: none; }
+  .flag-tag { display: inline-block; margin: 0 0 8px; padding: 2px 12px; border-radius: 999px; font-size: .8rem; font-weight: 700;
+              letter-spacing: .04em; text-transform: uppercase; color: var(--navy); background: #e3ecf7; }
+  .flag h2 { margin: 0 0 20px; font-size: 1.3rem; color: var(--navy); }
+  .flag-grid { display: grid; gap: 20px; }
+  @media (min-width: 640px) { .flag-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .flag-msg { margin: 0; padding: 16px; border-radius: 14px; background: #f8fafd; border: 1px solid var(--line);
+              white-space: pre-wrap; overflow-wrap: anywhere; }
+  .flag-msg mark { background: #ffe066; color: var(--ink); padding: 1px 3px; border-radius: 4px; }
+  .flag-note { padding: 16px; border-radius: 14px; background: #fffbea; border: 1px solid #f3e3a1; font-size: .95rem; }
+  .flag.danger { border-color: #f4c7c3; border-top: 6px solid var(--bad); }
+  .flag.danger .flag-tag { color: var(--white); background: var(--bad); }
+  .flag.danger .flag-msg mark { background: #fcd7d4; color: var(--bad); font-weight: 700; box-shadow: inset 0 -2px 0 var(--bad); }
+  .flag.danger .flag-note { background: var(--bad-bg); border-color: #f4c7c3; }
+  .flag-note h3 { margin: 0 0 8px; font-size: 1rem; color: var(--navy); }
+  .flag-note p { margin: 0; }
+  .flag.money { border-top: 6px solid #d9480f; }
+  .flag.money .flag-tag { color: var(--white); background: #d9480f; }
+  .flag.money .flag-msg mark { background: #ffd8a8; color: #7a2a05; font-weight: 600; }
+  .flag.money .flag-note { background: #fff4e6; border-color: #ffd8a8; }
+  .flag-note dl { margin: 0; } .flag-note dt { font-weight: 700; color: #7a2a05; }
+  .flag-note dd { margin: 2px 0 0; } .flag-note dd + dt { margin-top: 12px; }
+  .flag-note .flag-warn { margin-top: 12px; font-weight: 700; color: var(--bad); }
+  @media (max-width: 520px) {
+    .flag { padding: 24px 20px; border-radius: 16px; }
+    body { font-size: 16px; }
+    header { padding: 64px 16px 112px; }
+    #clear { padding: 16px; }
+    dialog { padding: 24px 20px; }
+    .card, #result { padding: 24px 20px; border-radius: 16px; }
+    textarea { min-height: 200px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button type="button" id="help-open" class="help-btn" aria-haspopup="dialog">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+    Help
+  </button>
+  <div class="badge" aria-hidden="true">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/>
+    </svg>
+  </div>
+  <h1>Scam Message Checker</h1>
+  <p class="sub">Paste a WhatsApp or SMS message to see if it shows common signs of a scam.</p>
+</header>
+
+<main>
+  <div class="card">
+    <section class="examples" aria-labelledby="ex-title">
+      <h2 id="ex-title">Try an example</h2>
+      <p>Tap one to see how the checker works. It fills in the box and checks it for you.</p>
+      <div class="ex-group"><h3>Scam examples</h3><div class="ex-row" id="ex-scam"></div></div>
+      <div class="ex-group"><h3>Safe examples</h3><div class="ex-row" id="ex-safe"></div></div>
+    </section>
+
+    <label for="msg">Your message</label>
+    <textarea id="msg" placeholder="Paste the message here…"></textarea>
+    <div class="actions">
+      <button type="button" id="check">Check message</button>
+      <button type="button" id="clear">Clear</button>
+    </div>
+    <p class="private">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      Checked on your device. Nothing is sent anywhere.
+    </p>
+  </div>
+
+  <section id="result" hidden aria-live="polite">
+    <div class="meter-head">
+      <p class="score"><span id="score">0</span><span class="of">/100</span></p>
+      <h2 id="verdict"></h2>
+    </div>
+    <div class="meter" id="meter" role="meter" aria-label="Risk score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="meter-fill" id="meter-fill"></div>
+    </div>
+    <div class="meter-scale" aria-hidden="true"><span>0</span><span style="left:30%">30</span><span style="left:60%">60</span><span>100</span></div>
+    <div id="summary"></div>
+    <div id="findings-wrap">
+      <h3 class="list-title">Red flags found</h3>
+      <ol id="reasons"></ol>
+    </div>
+    <div id="advice-wrap" class="advice">
+      <h3 class="list-title">What you should do</h3>
+      <ul id="advice"></ul>
+    </div>
+    <div id="report" class="report" hidden>
+      <h3 class="list-title">Report it in India</h3>
+      <p>Call <a href="tel:1930"><strong>1930</strong></a>, the National Cyber Crime Helpline, or visit <a href="https://cybercrime.gov.in" target="_blank" rel="noopener noreferrer"><strong>cybercrime.gov.in</strong></a>.</p>
+      <p class="report-sub">Report quickly if you've already paid or shared details. The sooner you call, the better the chance of stopping the money.</p>
+    </div>
+  </section>
+
+  <section id="secret" class="flag danger" hidden aria-labelledby="secret-title">
+    <p class="flag-tag">Red flag 2 · Most dangerous</p>
+    <h2 id="secret-title">Asking for your private details</h2>
+    <div class="flag-grid">
+      <p id="secret-msg" class="flag-msg"></p>
+      <aside class="flag-note">
+        <h3>Why this is a warning sign</h3>
+        <p>No real bank, company or government office ever asks you to send your OTP, PIN, password, card number, CVV, Aadhaar or PAN in a message. With these, a scammer can empty your account or take over your WhatsApp. Don't reply, and never share them, even if the message looks official.</p>
+      </aside>
+    </div>
+  </section>
+
+  <section id="link" class="flag danger" hidden aria-labelledby="link-title">
+    <p class="flag-tag">Red flag 3 · Risky link</p>
+    <h2 id="link-title">A link or app you shouldn't open</h2>
+    <div class="flag-grid">
+      <p id="link-msg" class="flag-msg"></p>
+      <aside class="flag-note">
+        <h3>Why this is a warning sign</h3>
+        <p>Real banks and companies don't text you shortened links, links asking you to update KYC, verify or claim something, or tell you to download an app to fix a problem. These lead to fake pages that steal your details, or apps that let scammers control your phone.</p>
+        <p class="flag-warn">Don't click it. If you're worried, open the company's official app or type its website yourself.</p>
+      </aside>
+    </div>
+  </section>
+
+  <section id="trick" class="flag money" hidden aria-labelledby="trick-title">
+    <p class="flag-tag">Red flag 4 · Money tricks</p>
+    <h2 id="trick-title">A common money trick</h2>
+    <div class="flag-grid">
+      <p id="trick-msg" class="flag-msg"></p>
+      <aside class="flag-note">
+        <h3>Which scam this is</h3>
+        <dl id="trick-list"></dl>
+      </aside>
+    </div>
+  </section>
+
+  <section id="pressure" class="flag" hidden aria-labelledby="pressure-title">
+    <p class="flag-tag">Red flag 1</p>
+    <h2 id="pressure-title">Pressure: they're trying to rush you</h2>
+    <div class="flag-grid">
+      <p id="pressure-msg" class="flag-msg"></p>
+      <aside class="flag-note">
+        <h3>Why this is a warning sign</h3>
+        <p>Scammers want you to act before you have time to think or ask someone. Real banks, delivery companies and government offices don't give you minutes to respond. If a message is rushing you, slow down, and check it yourself through a number or app you already trust.</p>
+      </aside>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>This tool catches common scams and tricks, but not every scam. Always be careful while sharing details and looking at random and scam-like messages in your messages app.</p>
+</footer>
+
+<dialog id="help" aria-labelledby="help-title">
+  <div class="help-head">
+    <h2 id="help-title">How this checker works</h2>
+    <button type="button" id="help-close" class="help-x" aria-label="Close help">×</button>
+  </div>
+  <p>Paste a WhatsApp or SMS message and press <strong>Check message</strong>. It looks for the tricks scammers use most and gives the message a risk score from 0 to 100.</p>
+  <h3>What it checks</h3>
+  <ul>
+    <li><strong>Asking for private details:</strong> requests to share your OTP, PIN, password, card number, CVV, Aadhaar or PAN. Messages that just give you an OTP, or warn you never to share it, are fine.</li>
+    <li><strong>Risky links and apps:</strong> shortened links like bit.ly, links with words like KYC, verify or claim, and requests to install apps like AnyDesk or APK files.</li>
+    <li><strong>Money tricks:</strong> prize and lottery wins, account-block and KYC threats, parcel fees, electricity cut-offs, work-from-home jobs, and unknown phone numbers to call.</li>
+    <li><strong>Pressure:</strong> words that rush you, like "urgent", "immediately" or "within 24 hours".</li>
+    <li><strong>Other warning signs:</strong> requests for payment, "Hi Mum, new number" messages, and police or "digital arrest" threats.</li>
+  </ul>
+  <h3>Reading the score</h3>
+  <ul class="help-score">
+    <li><span class="dot ok"></span><strong>Under 30:</strong> looks safe</li>
+    <li><span class="dot warn"></span><strong>30 to 60:</strong> be careful</li>
+    <li><span class="dot bad"></span><strong>Above 60:</strong> likely a scam</li>
+  </ul>
+  <p>Each red flag adds points, and different tricks together add extra. Every flag shows the exact words spotted and why they matter.</p>
+  <h3>Your privacy</h3>
+  <p>Everything runs on your device. The message is never sent anywhere, and the page works even with the internet turned off.</p>
+  <p>Not sure where to start? Tap one of the examples above the message box.</p>
+</dialog>
+
+<script id="checker">
+// Pressure words: scored as a rule and highlighted in the message.
+const PRESSURE = /\b(urgent(ly)?|immediately|right now|act now|hurry|asap|within \d+ ?(hours?|hrs?|minutes?|mins?|days?)|last (chance|warning|reminder)|expires? (today|soon)|final notice|today only)\b/i;
+
+// Private details nobody should ever ask for. "pin code" (postal code) is excluded.
+const SECRET = /\b(otp|one[- ]time (password|code)|(upi |atm |m)?pin(?! ?code)|password|passcode|(verification|security|login|whatsapp|\d[- ]digit) code|card (number|no|details)|debit card|credit card|cvv|expiry date|aadhaa?r( (number|card|details|no))?|pan( (number|card|details|no))?)\b/gi;
+// Words that ask you to hand something over.
+const ASK = /\b(share|send|tell|give|provide|confirm|forward|reply with|read out|need|what(?:'s| is))\b/gi;
+// A "no"/"never"/"don't" earlier in the same clause turns the ask into a warning ("never share your OTP").
+const NEGATION = /\b(no|not|never|nobody|no one|don'?t|do not|won'?t|will not|can'?t|cannot)\b/i;
+
+// Splits text into [{ start, text }] sentences, keeping each one's position in the message.
+function sentencesOf(text) {
+  const sentences = [];
+  let start = 0;
+  for (const m of text.matchAll(/[.!?]+(?=\s|$)|\n/g)) {
+    sentences.push({ start, text: text.slice(start, m.index + m[0].length) });
+    start = m.index + m[0].length;
+  }
+  if (start < text.length) sentences.push({ start, text: text.slice(start) });
+  return sentences;
+}
+
+// Ranges of secret words in sentences that ask you to send them.
+function secretRanges(text) {
+  const sentences = sentencesOf(text);
+  const ranges = [];
+  const secretsIn = s => [...s.text.matchAll(SECRET)].map(m => [s.start + m.index, s.start + m.index + m[0].length]);
+  sentences.forEach((s, i) => {
+    const asks = [...s.text.matchAll(ASK)].filter(m => !NEGATION.test(s.text.slice(0, m.index).split(/[,;:]/).pop()));
+    if (!asks.length) return;
+    const here = secretsIn(s);
+    if (here.length) return ranges.push(...here);
+    // "I sent you a code by mistake. Please send it to me." The secret is named in the sentence before.
+    if (i > 0 && asks.some(m => /^\w+ (it|that|this|them)\b/i.test(s.text.slice(m.index)))) ranges.push(...secretsIn(sentences[i - 1]));
+  });
+  return ranges;
+}
+
+// Each rule: [points out of 100, title, one-line explanation, pattern].
+const RULES = [
+  [20, "Promises a refund", "If you didn't ask for a refund, there isn't one. It's bait to get your details.",
+    /\brefund\b/gi],
+  [20, "Rushing you", "They want you to panic and act before you stop and think.", new RegExp(PRESSURE.source, "gi")],
+  [35, "Asks you to pay", "Real companies don't ask for fees, UPI payments, gift cards or crypto over a text.",
+    /\b(gift ?cards?|bitcoin|crypto|usdt|processing fee|registration fee|small fee|pay(ment)? of rs\.?|upi (id|pin)|scan (the )?qr|send money)\b/gi],
+  [40, "\"New number\" from family", "Scammers pretend to be your child or friend. Call them on their old number first.",
+    /\b(hi (mum|mom|dad)|this is my new number|i (lost|broke) my phone|new number,? save it)\b/gi],
+  [40, "Police or legal threat", "Police and courts don't threaten you on WhatsApp, and there's no such thing as a \"digital arrest\".",
+    /\b(police|cbi|cyber ?crime|arrest|court|legal action|fir|digital arrest|narcotics)\b/gi],
+];
+
+// Money tricks: [points, name, one-line explanation, longer explanation, phrases to highlight].
+const TRICKS = [
+  [40, "Prize or lottery scam", "You can't win a lottery you never entered. The \"prize\" is a trap to make you pay a fee.",
+    "You can't win a lottery you never entered. They'll ask for a \"tax\" or \"processing fee\" to release the prize, and the prize never comes.",
+    /\b(you( have|'ve)? won|winner|lottery|lucky draw|prize|jackpot|cashback of|gift voucher|kbc)\b/gi],
+  [40, "Account block or KYC scam", "Banks don't block accounts by text. It's a trick to get you onto a fake bank page.",
+    "Banks don't block accounts over SMS or WhatsApp. The link or number leads to a fake bank page that steals your login and empties your account.",
+    /\b(kyc|(account|card|sim|number|wallet)[^.!?\n]{0,30}?\b(blocked|suspended|deactivated|frozen|closed|terminated)|(will be|has been|is being) (blocked|suspended|deactivated|frozen|closed|terminated)|update your (details|account|pan|aadhaar)|verify your (account|identity|details))\b/gi],
+  [35, "Parcel fee scam", "There's no parcel. The \"small fee\" page is there to steal your card details.",
+    "You're asked to pay a small fee to release a parcel. The payment page steals your card details, and there's no parcel.",
+    /\b((parcel|package|shipment|courier)( is| has been)?( stuck| held| on hold| pending)?|customs|delivery (failed|attempt|pending)|redelivery|(small|customs|delivery|redelivery|shipping|clearance) (fee|charge)s?|india post|fedex|dhl|blue ?dart)\b/gi],
+  [35, "Electricity bill scam", "Power companies don't text you about cutting your supply tonight. It's a scare to make you pay.",
+    "Power companies don't text you to say your supply is being cut tonight. The \"officer\" will ask you to pay by UPI or install an app, and the money goes to the scammer.",
+    /\b(electricity|power|light)\b[^.!?\n]{0,40}?\b(cut( off)?|disconnect(ed)?|tonight)\b|\b(electricity|power) (bill|connection|department|officer|office)\b|\bbill (was |is )?(not (updated|paid)|unpaid|pending|overdue)\b/gi],
+  [65, "Work-from-home job scam", "Real jobs pay you, not the other way round. These end with you paying fees you never get back.",
+    "Real jobs never ask you to pay to join. These \"jobs\" (typing, data entry, liking videos) pay a little at first to win your trust, then ask for a registration fee or bigger deposits you never get back.",
+    /\b(work(ing)? from home|part[- ]time (job|work)|(typecasting|typing|data entry|jobs?|work) from home|typecasting|data entry( (job|work))?|(typing|copy[- ]paste) (jobs?|work)|earn(ing)?\s+(up ?to\s+)?(rs\.?\s?|₹\s?)?\d[\d,]*\s*(k|thousand|lakhs?)?(\s*(per|a|\/|every)\s*(day|week|month|hour))?|\d[\d,]*\s*(k|thousand)?\s*(per|a|\/)\s*(day|month)|daily (income|earning|payment)|(registration|joining) fee|security deposit|like (videos|posts) and earn|(simple|easy) tasks?|guaranteed (returns?|income)|double your money|investment (plan|opportunity))\b/gi],
+  [30, "Unknown phone number", "They want you to call them, not the real company. Only use numbers from the official website or your card.",
+    "Scammers give you their own number so you talk to them, not the real company. Only call numbers printed on your card, bill, or the company's official website.",
+    /\b(call|contact|message|msg|whatsapp|text|reach|dial)\b[^.!?\n]{0,30}?((\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}|\+\d[\d\s-]{8,}\d)/gi],
+];
+
+// [{ name, explanation, ranges }] for each money trick found in the text.
+function tricksFound(text) {
+  return TRICKS.map(([points, name, line, explanation, pattern]) => ({
+    points, name, line, explanation, ranges: [...text.matchAll(pattern)].map(m => [m.index, m.index + m[0].length]),
+  })).filter(t => t.ranges.length);
+}
+
+const LINK = /\b((https?:\/\/|www\.)[^\s]+|[a-z0-9-]+\.(com|in|net|org|xyz|top|info|online|site|click|link|live|shop|buzz|icu|co|ly|gd|gl|gy|at|cc|me|apk)(\/[^\s]*)?)/gi;
+const SHORTENER = /\b(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|cutt\.ly|rb\.gy|shorturl\.at|ow\.ly|tiny\.cc)\b/i;
+const RISKY_TLD = /\.(xyz|top|info|online|site|click|link|live|shop|buzz|icu)(\/|$)/i;
+const IP_LINK = /\b\d{1,3}(\.\d{1,3}){3}\b/;
+// Words scammers put inside links to make them look official.
+const LINK_BAIT = /kyc|verif|claim|update|login|signin|reward|refund|redeem/i;
+// Apps that let a stranger see or control your phone, and APK files that skip the app store.
+const REMOTE_APP = /\b(anydesk|teamviewer|quick ?support|rustdesk|airdroid|screen ?shar(e|ing)|[\w-]+\.apk)\b/gi;
+const INSTALL = /\b(download|install)(ing)?\s+(the |this |our |that |an? )?([\w-]+ ){0,2}(app|application|apk)\b/gi;
+const FIX = /\b(fix|resolve|update|verify|kyc|unblock|blocked|refund|activate|reactivate|continue|avoid|support|problem|issue|error|complete)\b/i;
+
+// Ranges of risky links: shortened, or carrying bait words like KYC or verify. Trailing punctuation isn't part of the link.
+function riskyLinkRanges(text) {
+  return [...text.matchAll(LINK)]
+    .map(m => [m.index, m.index + m[0].replace(/[.,!?)'"]+$/, "").length])
+    .filter(([a, b]) => { const l = text.slice(a, b); return SHORTENER.test(l) || LINK_BAIT.test(l) || /\.apk\b/i.test(l); });
+}
+
+// Ranges of "download this app to fix it" requests, plus remote-control apps and APK files anywhere.
+function appRanges(text) {
+  const ranges = [];
+  for (const s of sentencesOf(text)) {
+    for (const m of s.text.matchAll(REMOTE_APP)) ranges.push([s.start + m.index, s.start + m.index + m[0].length]);
+    if (FIX.test(s.text)) for (const m of s.text.matchAll(INSTALL)) ranges.push([s.start + m.index, s.start + m.index + m[0].length]);
+  }
+  return ranges;
+}
+
+// Sorts ranges and joins any that overlap, so each character is highlighted at most once.
+function mergeRanges(ranges) {
+  const out = [];
+  for (const [a, b] of [...ranges].sort((x, y) => x[0] - y[0])) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]);
+  }
+  return out;
+}
+
+// Demo messages: [button label, "scam" | "safe", message].
+const EXAMPLES = [
+  ["Fake bank KYC", "scam", "Dear SBI customer, your account will be blocked today. Update your KYC immediately to avoid suspension: http://sbi-kyc-update.xyz/verify"],
+  ["Courier fee", "scam", "India Post: Your parcel is stuck at our warehouse due to an incomplete address. Pay a small fee of Rs 25 within 24 hours to redeliver: bit.ly/indpost-fee"],
+  ["Work-from-home job", "scam", "Hello! We are hiring for part-time typing work from home. Earn up to 25k per month. Pay registration fee of Rs 499 to start. For details WhatsApp HR on 98765 43210."],
+  ["Electricity bill", "scam", "Dear consumer, your electricity will be disconnected tonight at 9:30 PM because your previous month bill was not updated. Please call our electricity officer 98765 43210 immediately."],
+  ["Lottery prize", "scam", "Congratulations! You have won Rs 25,00,000 in the KBC lucky draw. Pay a processing fee of Rs 1,500 to claim your prize. Call 91234 56789 now."],
+  ["OTP request", "scam", "Hi, this is Rahul from your bank. Your debit card will be blocked today. Please share the OTP you just received to stop it."],
+  ["\"Hi Mum\" new number", "scam", "Hi Mum, this is my new number. I lost my phone. Can you send money urgently? I'll explain later."],
+  ["Delivery update", "safe", "Your Flipkart order for boAt Rockerz headphones was delivered today at 2:15 PM. Thank you for shopping with us!"],
+  ["Real OTP", "safe", "482913 is your OTP for login to HDFC Bank NetBanking. Valid for 5 minutes. Do not share it with anyone."],
+];
+
+// Risk score 0-100. Each red flag adds points; tricks that show up together add a bonus on top.
+// Returns { verdict, score, findings: [{ title, why, words, points, kind }] }.
+function checkMessage(text) {
+  const findings = [];
+  const unique = words => [...new Map(words.map(w => [w.toLowerCase(), w])).values()];
+  const add = (points, title, why, words = [], kind = "") => findings.push({ title, why, words: unique(words), points, kind });
+  const wordsAt = ranges => ranges.map(([a, b]) => text.slice(a, b));
+
+  const secret = secretRanges(text);
+  if (secret.length) add(70, "Asks for your private details", "No real bank or company ever asks for these. Anyone who has them can empty your account.", wordsAt(secret), "secret");
+  for (const [points, title, why, pattern] of RULES) {
+    const words = [...text.matchAll(pattern)].map(m => m[0]);
+    if (words.length) add(points, title, why, words, title === "Asks you to pay" ? "pay" : "");
+  }
+  const tricks = tricksFound(text);
+  for (const t of tricks) add(t.points, t.name, t.line, wordsAt(t.ranges), t.name === "Unknown phone number" ? "phone" : "money");
+
+  const links = [...text.matchAll(LINK)].map(m => m[0].replace(/[.,!?)'"]+$/, ""));
+  if (links.length) {
+    add(30, "Has a link", "Don't tap links in messages you weren't expecting. They often lead to fake pages.", links, "link");
+    const linkCheck = (points, test, title, why) => { const hit = links.filter(l => test.test(l)); if (hit.length) add(points, title, why, hit, "link"); };
+    linkCheck(20, SHORTENER, "Shortened link", "Short links hide where they really take you.");
+    linkCheck(20, RISKY_TLD, "Cheap web address", "Endings like .xyz or .top are cheap to buy, so scammers love them.");
+    linkCheck(30, IP_LINK, "Number-only web address", "Real companies use proper names, not a string of numbers.");
+    linkCheck(25, LINK_BAIT, "Link pretends to be official", "Words like KYC, verify or claim in a link are there to make you trust it.");
+  }
+  const app = appRanges(text);
+  if (app.length) add(40, "Asks you to install an app", "Apps like AnyDesk or an APK file can let a stranger control your phone.", wordsAt(app), "app");
+
+  // Bonuses: scams stack tricks, so different kinds together are riskier than any one alone.
+  const kinds = [secret.length, riskyLinkRanges(text).length || app.length, PRESSURE.test(text)].filter(Boolean).length + tricks.length;
+  if (kinds > 1) add(Math.min(30, (kinds - 1) * 10), `${kinds} different tricks together`, "Scammers stack several tricks in one message. Real messages rarely do this.", [], "bonus");
+  if (links.length && (tricks.some(t => t.name !== "Unknown phone number") || findings.some(f => f.kind === "pay")))
+    add(20, "A link with a money story", "A link plus talk of money or prizes is the classic way scammers get paid.", [], "bonus");
+
+  const score = Math.min(100, findings.reduce((sum, f) => sum + f.points, 0));
+  const verdict = score > 60 ? "scam" : score >= 30 ? "suspicious" : "safe";
+  return { verdict, score, findings };
+}
+
+// What to do next, based on what was found. Empty when the message looks safe.
+function adviceFor({ verdict, findings }) {
+  if (verdict === "safe") return [];
+  const has = kind => findings.some(f => f.kind === kind);
+  const advice = ["Don't reply, not even to say \"stop\" or \"wrong number\"."];
+  if (has("link")) advice.push("Don't click any links in this message.");
+  advice.push("Don't share any OTP, PIN, password or card details, with anyone.");
+  if (has("pay") || has("money")) advice.push("Don't pay any fee or send money, however small.");
+  if (has("app")) advice.push("Don't install any app or open any file they mention.");
+  if (has("phone")) advice.push("Don't call or message the number in this message.");
+  advice.push("Block the sender and report it as spam in WhatsApp or your SMS app.");
+  advice.push("Not sure? Contact the company yourself using the number on its official website or your card.");
+  return advice;
+}
+
+// Splits text into [{ text, flagged }] pieces around sorted, non-overlapping [start, end] ranges.
+function markParts(text, ranges) {
+  const parts = [];
+  let last = 0;
+  for (const [a, b] of ranges) {
+    if (a > last) parts.push({ text: text.slice(last, a), flagged: false });
+    parts.push({ text: text.slice(a, b), flagged: true });
+    last = b;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), flagged: false });
+  return parts;
+}
+const pressureParts = text => markParts(text, [...text.matchAll(new RegExp(PRESSURE.source, "gi"))].map(m => [m.index, m.index + m[0].length]));
+const secretParts = text => markParts(text, secretRanges(text));
+const trickParts = text => markParts(text, mergeRanges(tricksFound(text).flatMap(t => t.ranges)));
+const linkParts = text => markParts(text, mergeRanges([...riskyLinkRanges(text), ...appRanges(text)]));
+</script>
+
+<script>
+const VIEW = {
+  scam: ["bad", "Likely a scam", "This message has several common scam signs. Don't reply, click links, pay, or share any codes."],
+  suspicious: ["warn", "Be careful", "This message has some warning signs. Check with the sender through a number or app you already trust."],
+  safe: ["ok", "Looks safe", "Nothing common to scams was found, but scammers change tactics. Stay careful with links and payments."],
+};
+
+for (const [label, kind, message] of EXAMPLES) {
+  const b = Object.assign(document.createElement("button"), { type: "button", className: "ex " + kind, textContent: label });
+  b.addEventListener("click", () => {
+    document.getElementById("msg").value = message;
+    runCheck();
+    document.getElementById("result").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  });
+  document.getElementById("ex-" + kind).append(b);
+}
+
+document.getElementById("check").addEventListener("click", runCheck);
+
+document.getElementById("clear").addEventListener("click", () => {
+  const msg = document.getElementById("msg");
+  msg.value = "";
+  for (const id of ["result", "report", "secret", "link", "trick", "pressure"]) document.getElementById(id).hidden = true;
+  msg.focus();
+});
+
+const help = document.getElementById("help");
+document.getElementById("help-open").addEventListener("click", () => help.showModal());
+document.getElementById("help-close").addEventListener("click", () => help.close());
+help.addEventListener("click", e => { if (e.target === help) help.close(); }); // click on the dimmed backdrop
+
+function runCheck() {
+  const text = document.getElementById("msg").value.trim();
+  const box = document.getElementById("result");
+  const list = document.getElementById("reasons");
+  list.replaceChildren();
+  box.hidden = false;
+  for (const id of ["secret", "link", "trick", "pressure"]) document.getElementById(id).hidden = true;
+  document.getElementById("report").hidden = true;
+  if (!text) {
+    box.className = "empty";
+    document.getElementById("findings-wrap").hidden = document.getElementById("advice-wrap").hidden = true;
+    document.getElementById("verdict").textContent = "Nothing to check";
+    document.getElementById("summary").textContent = "Paste a message in the box first.";
+    return;
+  }
+  const result = checkMessage(text);
+  const { verdict, score, findings } = result;
+  const [cls, title, summary] = VIEW[verdict];
+  box.className = cls;
+  document.getElementById("score").textContent = score;
+  document.getElementById("meter").setAttribute("aria-valuenow", score);
+  document.getElementById("meter").setAttribute("aria-valuetext", `${score} out of 100, ${title}`);
+  const fill = document.getElementById("meter-fill");
+  fill.style.width = "0";
+  requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = score + "%"; }));
+  document.getElementById("verdict").textContent = title;
+  document.getElementById("summary").textContent = summary;
+  const el = (tag, props, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  for (const f of findings) list.append(el("li", { className: f.kind === "bonus" ? "bonus" : "" },
+    el("div", { className: "f-head" }, el("span", { textContent: f.title }), el("span", { className: "pts", textContent: "+" + f.points })),
+    f.words.length ? el("div", { className: "f-words", ariaLabel: "Words spotted" }, ...f.words.map(w => el("span", { textContent: `"${w}"` }))) : "",
+    el("p", { className: "f-why", textContent: f.why })));
+  document.getElementById("findings-wrap").hidden = !findings.length;
+  const advice = adviceFor(result);
+  document.getElementById("advice").replaceChildren(...advice.map(a => el("li", { textContent: a })));
+  document.getElementById("advice-wrap").hidden = !advice.length;
+  document.getElementById("report").hidden = verdict !== "scam";
+  showFlag("secret", secretParts(text));
+  showFlag("link", linkParts(text));
+  document.getElementById("trick-list").replaceChildren(...tricksFound(text).flatMap(t => [
+    Object.assign(document.createElement("dt"), { textContent: t.name }),
+    Object.assign(document.createElement("dd"), { textContent: t.explanation })]));
+  showFlag("trick", trickParts(text));
+  showFlag("pressure", pressureParts(text));
+}
+
+function showFlag(id, parts) {
+  if (!parts.some(p => p.flagged)) return;
+  document.getElementById(id + "-msg").replaceChildren(...parts.map(p =>
+    p.flagged ? Object.assign(document.createElement("mark"), { textContent: p.text }) : document.createTextNode(p.text)));
+  document.getElementById(id).hidden = false;
+}
+</script>
+</body>
+</html>
